@@ -50,23 +50,14 @@
 
     .login {
       width: 100%;
-      max-width: 320px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px 16px 16px;
+      max-width: 240px;
+      border: 0px solid #fff;
+      border-radius: 5px;
+      padding: 28px;
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
-
-    .loginhead {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: baseline;
-      text-transform: lowercase;
-    }
-
     .title {
       font-size: 16px;
     }
@@ -74,12 +65,6 @@
     .small {
       opacity: 0.55;
       font-size: 12px;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
     }
 
     .label {
@@ -180,8 +165,7 @@
     }
 
     .composer {
-      border-top: 1px solid var(--border);
-      padding: 12px;
+      padding: 16px;
     }
 
     .composerrow {
@@ -196,6 +180,10 @@
       line-height: 1.4;
       margin-top: 8px;
       min-height: 1.2em;
+    }
+
+    .meta:empty {
+      display: none;
     }
 
     .topline {
@@ -224,22 +212,13 @@
   <div class="app">
     <div id="loginWrap" class="login-wrap" hidden>
       <form id="loginForm" class="login">
-        <div class="loginhead">
-          <div class="title">chat</div>
-          <div class="small">enter</div>
-        </div>
 
-        <div class="field">
-          <div class="label">name</div>
-          <input id="nameInput" class="nameinput" placeholder="name" autocomplete="nickname" autocapitalize="none" autocorrect="off" spellcheck="false" />
-        </div>
+	<input id="nameInput" class="nameinput" placeholder="username"/>
 
-        <div class="field">
-          <div class="label">password</div>
-          <input id="passwordInput" class="passwordinput" type="password" placeholder="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" />
-        </div>
+	<input id="passwordInput" class="passwordinput" type="password" placeholder="password"/>
 
-        <button class="button" type="submit">enter</button>
+	<button class="button" type="submit">enter</button>
+
         <div id="loginError" class="muted"></div>
       </form>
     </div>
