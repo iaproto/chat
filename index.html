@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000;
+      --fg: #fff;
+      --muted: rgba(255, 255, 255, 0.55);
+      --border: #fff;
+      --radius: 5px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg); font-family: 'Fira Code', monospace; }
+    body { min-height: 100vh; }
+    ::selection { background: var(--fg); color: var(--bg); }
+    button, input { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .login-wrap {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login {
+      width: 100%;
+      max-width: 320px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .loginhead {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      text-transform: lowercase;
+    }
+
+    .title {
+      font-size: 16px;
+    }
+
+    .small {
+      opacity: 0.55;
+      font-size: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .label {
+      font-size: 12px;
+      opacity: 0.75;
+      text-transform: lowercase;
+    }
+
+    .nameinput,
+    .passwordinput,
+    .messageinput {
+      width: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      outline: none;
+      min-width: 0;
+    }
+
+    .nameinput::placeholder,
+    .passwordinput::placeholder,
+    .messageinput::placeholder { color: rgba(255,255,255,0.38); }
+
+    .button {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--fg);
+      color: var(--bg);
+      padding: 12px 14px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .button:active { transform: translateY(1px); }
+
+    .muted {
+      opacity: 0.55;
+      font-size: 12px;
+      line-height: 1.4;
+      min-height: 1.2em;
+    }
+
+    .chat-shell {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      min-height: 72vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .line {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .time {
+      flex: 0 0 auto;
+      min-width: 48px;
+      opacity: 0.55;
+    }
+
+    .name {
+      flex: 0 0 auto;
+      opacity: 0.9;
+    }
+
+    .arrow {
+      opacity: 0.7;
+    }
+
+    .content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .composer {
+      border-top: 1px solid var(--border);
+      padding: 12px;
+    }
+
+    .composerrow {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .meta {
+      opacity: 0.55;
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: 8px;
+      min-height: 1.2em;
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      text-transform: lowercase;
+      padding: 2px 2px 0;
+    }
+
+    .room { font-size: 16px; }
+    .status { font-size: 12px; opacity: 0.55; }
+
+    @media (max-width: 640px) {
+      .app { padding: 8px; }
+      .composerrow { flex-direction: column; align-items: stretch; }
+      .button { width: 100%; }
+      .line { flex-wrap: wrap; gap: 6px; }
+      .time { min-width: 0; }
+      .login { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div id="loginWrap" class="login-wrap" hidden>
+      <form id="loginForm" class="login">
+        <div class="loginhead">
+          <div class="title">chat</div>
+          <div class="small">enter</div>
+        </div>
+
+        <div class="field">
+          <div class="label">name</div>
+          <input id="nameInput" class="nameinput" placeholder="name" autocomplete="nickname" autocapitalize="none" autocorrect="off" spellcheck="false" />
+        </div>
+
+        <div class="field">
+          <div class="label">password</div>
+          <input id="passwordInput" class="passwordinput" type="password" placeholder="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" />
+        </div>
+
+        <button class="button" type="submit">enter</button>
+        <div id="loginError" class="muted"></div>
+      </form>
+    </div>
+
+    <div id="chatWrap" class="shell" hidden>
+      <div class="topline">
+        <div class="room">chat</div>
+        <div class="status" id="status">offline</div>
+      </div>
+
+      <div class="chat-shell">
+        <div class="panel">
+          <div id="messages" class="messages"></div>
+          <form id="composer" class="composer">
+            <div class="composerrow">
+              <input id="messageInput" class="messageinput" placeholder="message" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="1000" />
+            </div>
+            <div id="chatMeta" class="meta"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "https://naaqxnhsbhvqulqpesbj.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_WQ8QfzO06jEsNVqeKLBpoA_Yx5hELAE";
+
+    const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "YOUR_SUPABASE_URL")
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    const els = {
+      loginWrap: document.getElementById('loginWrap'),
+      chatWrap: document.getElementById('chatWrap'),
+      loginForm: document.getElementById('loginForm'),
+      nameInput: document.getElementById('nameInput'),
+      passwordInput: document.getElementById('passwordInput'),
+      loginError: document.getElementById('loginError'),
+      status: document.getElementById('status'),
+      messages: document.getElementById('messages'),
+      composer: document.getElementById('composer'),
+      messageInput: document.getElementById('messageInput'),
+      chatMeta: document.getElementById('chatMeta'),
+    };
+
+    let name = localStorage.getItem('chat_name') || '';
+    let password = localStorage.getItem('chat_password') || '';
+    let channel = null;
+    let authed = false;
+
+    function formatTime(ts) {
+      const d = new Date(ts);
+      const now = new Date();
+      const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+      if (sameDay) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      }
+      return d.toLocaleDateString([], { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+
+    function setStatus(value) {
+      els.status.textContent = value;
+    }
+
+    function setView(loggedIn) {
+      els.loginWrap.hidden = loggedIn;
+      els.chatWrap.hidden = !loggedIn;
+    }
+
+    function renderLine(msg) {
+      const row = document.createElement('div');
+      row.className = 'line';
+      row.dataset.id = msg.id;
+
+      const time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = formatTime(msg.created_at);
+
+      const n = document.createElement('span');
+      n.className = 'name';
+      n.textContent = msg.name;
+
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.textContent = '>';
+
+      const content = document.createElement('span');
+      content.className = 'content';
+      content.textContent = msg.content;
+
+      row.append(time, n, arrow, content);
+      return row;
+    }
+
+    function scrollBottom() {
+      els.messages.scrollTop = els.messages.scrollHeight;
+    }
+
+    async function loadMessages() {
+      if (!supabase) {
+        setStatus('set keys');
+        els.chatMeta.textContent = 'add supabase keys';
+        return;
+      }
+
+      setStatus('loading');
+      els.chatMeta.textContent = '';
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, name, content, created_at')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true });
+
+      if (error) {
+        setStatus('offline');
+        els.chatMeta.textContent = error.message;
+        return;
+      }
+
+      els.messages.innerHTML = '';
+      (data || []).forEach((msg) => els.messages.appendChild(renderLine(msg)));
+      setStatus('online');
+      scrollBottom();
+    }
+
+    function subscribe() {
+      if (!supabase) return;
+      if (channel) supabase.removeChannel(channel);
+
+      channel = supabase
+        .channel('room:main')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          (payload) => {
+            const exists = Array.from(els.messages.children).some((node) => node.dataset.id === String(payload.new.id));
+            if (exists) return;
+            els.messages.appendChild(renderLine(payload.new));
+            scrollBottom();
+          }
+        )
+        .subscribe((state) => {
+          if (state === 'SUBSCRIBED') setStatus('online');
+        });
+    }
+
+    async function verifyPassword(inputPassword) {
+      if (!supabase) throw new Error('supabase not set');
+
+      const { data, error } = await supabase
+        .from('room_access')
+        .select('password')
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      return data && data.password === inputPassword;
+    }
+
+    async function enterChat() {
+      const nextName = els.nameInput.value.trim();
+      const nextPassword = els.passwordInput.value;
+
+      if (!nextName || !nextPassword) {
+        els.loginError.textContent = 'missing';
+        return;
+      }
+
+      if (!supabase) {
+        els.loginError.textContent = 'add supabase keys';
+        return;
+      }
+
+      els.loginError.textContent = '';
+      els.loginForm.querySelector('button').textContent = '...';
+
+      try {
+        const ok = await verifyPassword(nextPassword);
+        if (!ok) {
+          els.loginError.textContent = 'invalid';
+          els.loginForm.querySelector('button').textContent = 'enter';
+          return;
+        }
+
+        name = nextName;
+        password = nextPassword;
+        localStorage.setItem('chat_name', name);
+        localStorage.setItem('chat_password', password);
+
+        authed = true;
+        setView(true);
+        setStatus('loading');
+        await loadMessages();
+        subscribe();
+        setTimeout(() => els.messageInput.focus(), 0);
+      } catch (err) {
+        els.loginError.textContent = err?.message || 'error';
+      } finally {
+        els.loginForm.querySelector('button').textContent = 'enter';
+      }
+    }
+
+    els.loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      enterChat();
+    });
+
+    els.composer.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = els.messageInput.value.trim();
+      if (!content || !name || !supabase) return;
+
+      els.messageInput.value = '';
+      const { error } = await supabase.from('messages').insert({ name, content });
+      if (error) {
+        els.chatMeta.textContent = error.message;
+        els.messageInput.value = content;
+      }
+    });
+
+    els.messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        els.composer.requestSubmit();
+      }
+    });
+
+    async function boot() {
+      els.nameInput.value = name;
+      els.passwordInput.value = password;
+
+      if (name && password && supabase) {
+        try {
+          const ok = await verifyPassword(password);
+          if (ok) {
+            authed = true;
+            setView(true);
+            setStatus('loading');
+            await loadMessages();
+            subscribe();
+            return;
+          }
+        } catch (_) {
+          // fall through to login
+        }
+      }
+
+      setView(false);
+      setStatus(supabase ? 'ready' : 'set keys');
+      els.nameInput.focus();
+    }
+
+    boot();
+  </script>
+</body>
+</html>
+
