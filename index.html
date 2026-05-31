@@ -17,6 +17,10 @@
       --radius: 5px;
     }
 
+    [hidden] {
+      display: none !important;
+    }
+
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg); font-family: 'Fira Code', monospace; }
     body { min-height: 100vh; }
@@ -265,9 +269,10 @@
     const SUPABASE_URL = "https://naaqxnhsbhvqulqpesbj.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_WQ8QfzO06jEsNVqeKLBpoA_Yx5hELAE";
 
-    const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== "YOUR_SUPABASE_URL")
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-      : null;
+    const db = window.supabase.createClient(
+      "https://naaqxnhsbhvqulqpesbj.supabase.co",
+      "sb_publishable_WQ8QfzO06jEsNVqeKLBpoA_Yx5hELAE",
+    );
 
     const els = {
       loginWrap: document.getElementById('loginWrap'),
@@ -337,7 +342,7 @@
     }
 
     async function loadMessages() {
-      if (!supabase) {
+      if (!db) {
         setStatus('set keys');
         els.chatMeta.textContent = 'add supabase keys';
         return;
@@ -346,7 +351,7 @@
       setStatus('loading');
       els.chatMeta.textContent = '';
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('messages')
         .select('id, name, content, created_at')
         .order('created_at', { ascending: true })
@@ -365,10 +370,10 @@
     }
 
     function subscribe() {
-      if (!supabase) return;
-      if (channel) supabase.removeChannel(channel);
+      if (!db) return;
+      if (channel) db.removeChannel(channel);
 
-      channel = supabase
+      channel = db
         .channel('room:main')
         .on(
           'postgres_changes',
@@ -386,9 +391,9 @@
     }
 
     async function verifyPassword(inputPassword) {
-      if (!supabase) throw new Error('supabase not set');
+      if (!db) throw new Error('supabase not set');
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('room_access')
         .select('password')
         .limit(1)
@@ -407,7 +412,7 @@
         return;
       }
 
-      if (!supabase) {
+      if (!db) {
         els.loginError.textContent = 'add supabase keys';
         return;
       }
@@ -449,10 +454,10 @@
     els.composer.addEventListener('submit', async (e) => {
       e.preventDefault();
       const content = els.messageInput.value.trim();
-      if (!content || !name || !supabase) return;
+      if (!content || !name || !db) return;
 
       els.messageInput.value = '';
-      const { error } = await supabase.from('messages').insert({ name, content });
+      const { error } = await db.from('messages').insert({ name, content });
       if (error) {
         els.chatMeta.textContent = error.message;
         els.messageInput.value = content;
@@ -470,7 +475,7 @@
       els.nameInput.value = name;
       els.passwordInput.value = password;
 
-      if (name && password && supabase) {
+      if (name && password && db) {
         try {
           const ok = await verifyPassword(password);
           if (ok) {
@@ -487,7 +492,7 @@
       }
 
       setView(false);
-      setStatus(supabase ? 'ready' : 'set keys');
+      setStatus(db ? 'ready' : 'set keys');
       els.nameInput.focus();
     }
 
