@@ -4,10 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>chat</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <style>
+
+@font-face {
+      font-family: "fira";
+      src: url("fira.otf") format("opentype");
+    }
+
     :root {
       color-scheme: dark;
       --bg: #000;
@@ -22,7 +26,7 @@
     }
 
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg); font-family: 'Fira Code', monospace; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg); font-family: 'fira', monospace; }
     body { min-height: 100vh; }
     ::selection { background: var(--fg); color: var(--bg); }
     button, input { font: inherit; }
@@ -136,6 +140,18 @@
       word-break: break-word;
     }
 
+    .drafts {
+      padding: 12px;
+    }
+
+    .draft {
+      opacity: 0.45;
+    }
+
+    .draft .time {
+      display: none;
+    }
+
     .line {
       display: flex;
       gap: 10px;
@@ -188,7 +204,7 @@
 
     .topline {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 12px;
       align-items: baseline;
       text-transform: lowercase;
@@ -225,13 +241,13 @@
 
     <div id="chatWrap" class="shell" hidden>
       <div class="topline">
-        <div class="room">chat</div>
         <div class="status" id="status">offline</div>
       </div>
 
       <div class="chat-shell">
         <div class="panel">
           <div id="messages" class="messages"></div>
+          <div id="drafts" class="drafts"></div>
           <form id="composer" class="composer">
             <div class="composerrow">
               <input id="messageInput" class="messageinput" placeholder="message" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="1000" />
@@ -262,6 +278,7 @@
       loginError: document.getElementById('loginError'),
       status: document.getElementById('status'),
       messages: document.getElementById('messages'),
+      drafts: document.getElementById('drafts'),
       composer: document.getElementById('composer'),
       messageInput: document.getElementById('messageInput'),
       chatMeta: document.getElementById('chatMeta'),
@@ -270,7 +287,11 @@
     let name = localStorage.getItem('chat_name') || '';
     let password = localStorage.getItem('chat_password') || '';
     let channel = null;
+    let presenceChannel = null;
+    let typingChannel = null;
+    let typingTimer = null;
     let authed = false;
+    const clientId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
     function formatTime(ts) {
       const d = new Date(ts);
@@ -320,6 +341,66 @@
       els.messages.scrollTop = els.messages.scrollHeight;
     }
 
+    function renderDraft(key, sender, content) {
+      let row = document.getElementById(`draft-${key}`);
+
+      if (!content) {
+        if (row) row.remove();
+        return;
+      }
+
+      if (!row) {
+        row = document.createElement('div');
+        row.id = `draft-${key}`;
+        row.className = 'line draft';
+        els.drafts.appendChild(row);
+      }
+
+      row.innerHTML = '';
+      const time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = '';
+
+      const n = document.createElement('span');
+      n.className = 'name';
+      n.textContent = sender;
+
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.textContent = '>';
+
+      const contentEl = document.createElement('span');
+      contentEl.className = 'content';
+      contentEl.textContent = content;
+
+      row.append(time, n, arrow, contentEl);
+      scrollBottom();
+    }
+
+    function clearDraft() {
+      renderDraft(clientId, name, '');
+      if (typingChannel) {
+        typingChannel.send({
+          type: 'broadcast',
+          event: 'draft',
+          payload: { clientId, name, content: '' }
+        });
+      }
+    }
+
+    function sendDraft(content) {
+      if (!typingChannel) return;
+      typingChannel.send({
+        type: 'broadcast',
+        event: 'draft',
+        payload: {
+          clientId,
+          name,
+          content
+        }
+      });
+    }
+
     async function loadMessages() {
       if (!db) {
         setStatus('set keys');
@@ -351,6 +432,8 @@
     function subscribe() {
       if (!db) return;
       if (channel) db.removeChannel(channel);
+      if (presenceChannel) db.removeChannel(presenceChannel);
+      if (typingChannel) db.removeChannel(typingChannel);
 
       channel = db
         .channel('room:main')
@@ -364,9 +447,34 @@
             scrollBottom();
           }
         )
-        .subscribe((state) => {
-          if (state === 'SUBSCRIBED') setStatus('online');
-        });
+        .subscribe();
+
+      presenceChannel = db.channel('presence:main', {
+        config: {
+          presence: { key: clientId }
+        }
+      });
+
+      presenceChannel.on('presence', { event: 'sync' }, () => {
+        const state = presenceChannel.presenceState();
+        const count = Object.keys(state).length;
+        setStatus(count > 1 ? 'online' : 'offline');
+      });
+
+      presenceChannel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({ online: true, name, clientId });
+        }
+      });
+
+      typingChannel = db.channel('typing:main');
+
+      typingChannel.on('broadcast', { event: 'draft' }, ({ payload }) => {
+        if (!payload || payload.clientId === clientId) return;
+        renderDraft(payload.clientId, payload.name || 'user', payload.content || '');
+      });
+
+      typingChannel.subscribe();
     }
 
     async function verifyPassword(inputPassword) {
@@ -435,12 +543,29 @@
       const content = els.messageInput.value.trim();
       if (!content || !name || !db) return;
 
+      clearDraft();
       els.messageInput.value = '';
       const { error } = await db.from('messages').insert({ name, content });
       if (error) {
         els.chatMeta.textContent = error.message;
         els.messageInput.value = content;
       }
+    });
+
+    els.messageInput.addEventListener('input', () => {
+      clearTimeout(typingTimer);
+
+      const content = els.messageInput.value.trim();
+      if (!content) {
+        clearDraft();
+        return;
+      }
+
+      renderDraft(clientId, name, content);
+
+      typingTimer = setTimeout(() => {
+        sendDraft(els.messageInput.value.trim());
+      }, 120);
     });
 
     els.messageInput.addEventListener('keydown', (e) => {
