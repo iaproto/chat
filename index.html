@@ -190,6 +190,10 @@
       align-items: center;
     }
 
+    .pending {
+      opacity: 0.45;
+    }
+
     .meta {
       opacity: 0.55;
       font-size: 12px;
@@ -435,19 +439,33 @@
       if (presenceChannel) db.removeChannel(presenceChannel);
       if (typingChannel) db.removeChannel(typingChannel);
 
-      channel = db
-        .channel('room:main')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages' },
-          (payload) => {
-            const exists = Array.from(els.messages.children).some((node) => node.dataset.id === String(payload.new.id));
-            if (exists) return;
-            els.messages.appendChild(renderLine(payload.new));
-            scrollBottom();
+    channel = db
+      .channel('room:main')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const exists = Array.from(els.messages.children).some(
+            (node) => node.dataset.id === String(payload.new.id)
+          );
+
+          if (exists) return;
+
+          const pending = els.messages.querySelector('.pending');
+
+          if (
+            pending &&
+            payload.new.name === name &&
+            pending.querySelector('.content')?.textContent === payload.new.content
+          ) {
+            pending.remove();
           }
-        )
-        .subscribe();
+
+          els.messages.appendChild(renderLine(payload.new));
+          scrollBottom();
+        }
+      )
+      .subscribe();
 
       presenceChannel = db.channel('presence:main', {
         config: {
@@ -540,13 +558,21 @@
 
     els.composer.addEventListener('submit', async (e) => {
       e.preventDefault();
+
       const content = els.messageInput.value.trim();
       if (!content || !name || !db) return;
 
       clearDraft();
       els.messageInput.value = '';
-      const { error } = await db.from('messages').insert({ name, content });
+
+      const pending = renderPendingMessage(content);
+
+      const { error } = await db
+        .from('messages')
+        .insert({ name, content });
+
       if (error) {
+        pending.remove();
         els.chatMeta.textContent = error.message;
         els.messageInput.value = content;
       }
@@ -598,6 +624,36 @@
       setView(false);
       setStatus(db ? 'ready' : 'set keys');
       els.nameInput.focus();
+    }
+
+    function renderPendingMessage(content) {
+      const row = document.createElement('div');
+
+      row.className = 'line pending';
+      row.dataset.pending = 'true';
+
+      const time = document.createElement('span');
+      time.className = 'time';
+      time.textContent = formatTime(new Date());
+
+      const n = document.createElement('span');
+      n.className = 'name';
+      n.textContent = name;
+
+      const arrow = document.createElement('span');
+      arrow.className = 'arrow';
+      arrow.textContent = '>';
+
+      const text = document.createElement('span');
+      text.className = 'content';
+      text.textContent = content;
+
+      row.append(time, n, arrow, text);
+
+      els.messages.appendChild(row);
+      scrollBottom();
+
+      return row;
     }
 
     boot();
